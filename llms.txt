@@ -1,0 +1,27 @@
+This project offers two independent tools for generating word clouds from news articles: a Python script (`word_cloud.py`) and a Jupyter Notebook (`Word Cloud.ipynb`). Both tools fetch articles from a configurable list of RSS feeds, extract keywords using NLP, and then create word cloud images from those keywords.
+
+**word_cloud.py (Python Script):**
+A standalone script designed for batch execution. Its core logic is encapsulated in functions (`collect_news_articles`, `generate_wordcloud`) and the main execution flow is guarded by `if __name__ == '__main__':`. It automatically downloads necessary NLTK resources.
+
+**Word Cloud.ipynb (Jupyter Notebook):**
+A standalone, interactive notebook providing a step-by-step demonstration of the word cloud generation process. It includes its own dependency installation and NLTK resource download steps within the notebook cells.
+
+Dependencies (common to both):
+- requests
+- PyYAML
+- beautifulsoup4
+- newspaper3k
+- pandas
+- numpy
+- Pillow
+- matplotlib
+- wordcloud
+- nltk
+
+Architectural flow (for both script and notebook):
+1.  Read RSS feed URLs from a YAML file (`feeds.yaml`).
+2.  Parse each RSS feed to extract article URLs.
+3.  Download and parse article content using `newspaper3k`.
+4.  Extract full article text and NLP-derived keywords.
+5.  Store results in a pandas DataFrame and optionally export to a CSV file.
+6.  Generate multiple wordcloud visualizations (optionally masked and recolored) and save them as PNG images.

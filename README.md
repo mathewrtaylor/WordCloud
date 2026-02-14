@@ -1,6 +1,6 @@
 # WordCloud
 
-A news aggregation and visualization project that uses web scraping, natural language processing (NLP), and matplotlib to generate insightful word clouds from current news articles.
+A news aggregation and visualization project that uses web scraping, natural language processing (NLP), and matplotlib to generate insightful word clouds from current news articles. This project offers two independent tools, a Python script and a Jupyter Notebook, each fully capable of executing the core functionality.
 
 The project supports:
 
@@ -8,8 +8,6 @@ The project supports:
 - Article parsing and keyword extraction via NLP
 - Archival datasets (CSV)
 - Multiple wordcloud visual styles, including image masks and recoloring
-
-Originally built as a **Jupyter Notebook**, the project now also supports **script-based execution** for repeatable and automated runs.
 
 ---
 
@@ -28,24 +26,33 @@ Originally built as a **Jupyter Notebook**, the project now also supports **scri
 ---
 
 ## Installation
-### Jupyter Notebook (Original Workflow)
 
-This project was originally designed to run as a Jupyter Notebook.
+This project can be set up using a Python virtual environment and `pip`.
 
-Open a terminal and navigate to the directory where you want to install the project, then run:
+Open a terminal and navigate to your desired project directory, then clone the repository:
 
 ```bash
 git clone https://github.com/mathewrtaylor/WordCloud.git
- WordCloud
 cd WordCloud
-conda env create -f environment.yml
 ```
 
-Activate the environment and install dependencies:
+Create and activate a virtual environment (recommended):
 
 ```bash
-source activate WordCloud
-conda install --force-reinstall -y -q --name WordCloud -c conda-forge --file requirements.txt
+python -m venv venv
+source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+```
+
+Install the required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+To run the Jupyter Notebook, ensure Jupyter Lab is installed within your virtual environment:
+
+```bash
+pip install jupyterlab
 jupyter lab
 ```
 
@@ -54,13 +61,13 @@ jupyter lab
 ## Usage
 ### Jupyter Notebook
 
-1. Launch Jupyter Lab
-2. Open the notebook in the project directory
-3. Run cells top-to-bottom to:
-    - Load RSS feeds
-    - Download and parse articles
-    - Generate datasets
-    - Render wordclouds
+1.  Launch Jupyter Lab from your activated virtual environment (`jupyter lab`).
+2.  Open the `Word Cloud.ipynb` notebook in the project directory.
+3.  Run cells top-to-bottom. The notebook handles its own NLTK data download within its cells. This will:
+    -   Load RSS feeds
+    -   Download and parse articles
+    -   Generate datasets
+    -   Render wordclouds
 
 This is the best way to explore and tweak visual styles interactively.
 
@@ -68,26 +75,57 @@ This is the best way to explore and tweak visual styles interactively.
 
 ### Python Script (Automated / Repeatable)
 
-The core logic has been refactored into reusable functions so the workflow can also be run as a standard Python script.
 
-Example execution:
+
+The `word_cloud.py` script provides the core functionality for news aggregation and word cloud generation. It is designed for command-line execution and automated runs.
+
+
+
+**Key features:**
+
+-   Encapsulated logic within functions for clarity.
+
+-   Main execution logic runs when the script is executed directly (`if __name__ == '__main__': main()`).
+
+-   Automatically checks for and downloads the necessary NLTK 'punkt_tab' resource if not found, eliminating manual intervention.
+
+
+
+**Example execution:**
+
+
 
 ```bash
-python wordcloud_pipeline.py
+
+python word_cloud.py
+
 ```
+
+
 
 Script execution:
 
-- Loads RSS feeds from feeds.yaml
-- Downloads and parses articles
-- Exports a date-stamped CSV file
-- Generates one or more wordcloud images
+
+
+-   Loads RSS feeds from `feeds.yaml`
+
+-   Downloads and parses articles
+
+-   Exports a date-stamped CSV file
+
+-   Generates multiple wordcloud images based on the configuration within the script.
+
+
 
 This mode is ideal for:
 
-- Scheduled runs (cron, Task Scheduler)
-- Headless environments
-- Batch experimentation
+
+
+-   Scheduled runs (cron, Task Scheduler)
+
+-   Headless environments
+
+-   Batch experimentation
 
 ---
 
