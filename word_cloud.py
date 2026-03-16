@@ -62,6 +62,8 @@ Notes:
 """
 
 import datetime
+import logging
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import nltk
@@ -73,63 +75,183 @@ from newspaper import Article
 from PIL import Image
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
-def check_nltk_resource(resource_name):
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+
+
+def check_nltk_resource(resource_name: str) -> None:
     """
     Checks if a specific NLTK resource is installed.
     If not, it downloads it.
     """
     try:
-        nltk.data.find(f'tokenizers/{resource_name}.zip') # Check for the zip file first
-        print(f"NLTK resource '{resource_name}' is installed.")
+        nltk.data.find(f'tokenizers/{resource_name}.zip')  # Check for the zip file first
+        logger.info(f"NLTK resource '{resource_name}' is installed.")
     except LookupError:
-        print(f"NLTK resource '{resource_name}' not found. Downloading...")
+        logger.info(f"NLTK resource '{resource_name}' not found. Downloading...")
         nltk.download(resource_name)
-    except Exception as e:
-        # Sometimes the path pointer is found but not a simple zip file, this handles general import errors
+    except Exception:
+        # Sometimes the path pointer is found but not a simple zip file; handle general lookup errors
         try:
             nltk.data.find(f'tokenizers/{resource_name}')
-            print(f"NLTK resource '{resource_name}' is installed.")
+            logger.info(f"NLTK resource '{resource_name}' is installed.")
         except LookupError:
-            print(f"NLTK resource '{resource_name}' not found. Downloading...")
+            logger.info(f"NLTK resource '{resource_name}' not found. Downloading...")
             nltk.download(resource_name)
 
 
-def main():
-    # Download the tokenizer
-    check_nltk_resource('punkt_tab')
+def collect_news_articles(feeds_yaml_path: str, today: datetime.date) -> pd.DataFrame:
+    """
+    Loads RSS feeds from a YAML config, scrapes article URLs, downloads and parses
+    each article using newspaper3k, saves results to a date-stamped CSV, and returns
+    a DataFrame.
 
-    # Setting date for file outputs
+    Args:
+        feeds_yaml_path: Path to the YAML file containing the list of RSS feed URLs.
+        today: Date used to timestamp the output CSV filename.
+
+    Returns:
+        DataFrame with columns: URL, Keywords, Text.
+    """
+    with open(feeds_yaml_path, 'r') as f:
+        config = yaml.safe_load(f)
+    feeds = config['feeds']
+
+    articles = []
+    for feed in feeds:
+        try:
+            response = requests.get(feed, timeout=10)
+            soup = BeautifulSoup(response.content, features='xml')
+            for item in soup.find_all('item'):
+                link = item.find('link')
+                if link:
+                    articles.append(link.text)
+        except Exception:
+            logger.warning(f"Failed to fetch feed: {feed}")
+
+    logger.info(f"Articles pulled down: {len(articles)}")
+
+    data = []
+    for url in articles:
+        info = Article(url)
+        try:
+            info.download()
+            info.parse()
+            info.nlp()
+            data.append([url, info.keywords, info.text])
+        except Exception:
+            continue
+
+    if not data:
+        logger.warning("No article data collected.")
+        return pd.DataFrame(columns=['URL', 'Keywords', 'Text'])
+
+    df = pd.DataFrame(data, columns=['URL', 'Keywords', 'Text'])
+    csv_path = f"news_articles_{today}.csv"
+    df.to_csv(csv_path, index=False)
+    logger.info(f"Saved {len(df)} articles to {csv_path}")
+    return df
+
+
+def generate_wordcloud(
+    text: str,
+    output_prefix: str,
+    today: datetime.date,
+    stopwords: set,
+    figsize: tuple = (20, 20),
+    mask_image: str = None,
+    recolor_from_mask: bool = False,
+    colormap: str = None,
+    random_state: int = None,
+) -> None:
+    """
+    Generates and saves a wordcloud PNG image.
+
+    Args:
+        text: Space-separated keywords to render in the wordcloud.
+        output_prefix: Base name for the output PNG file.
+        today: Date used to timestamp the output filename.
+        stopwords: Set of words to exclude from the wordcloud.
+        figsize: Matplotlib figure size tuple (width, height).
+        mask_image: Optional filename of an image to use as a mask shape.
+        recolor_from_mask: If True, recolors the wordcloud using the mask image's colors.
+        colormap: Optional matplotlib colormap name (e.g. 'rainbow').
+        random_state: Optional random seed for reproducible layouts.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    wc_kwargs = {
+        'stopwords': stopwords,
+        'collocations': False,
+        'background_color': 'white',
+    }
+
+    frame = None
+    if mask_image:
+        mask_path = os.path.join(script_dir, mask_image)
+        frame = np.array(Image.open(mask_path))
+        wc_kwargs['mask'] = frame
+
+    if colormap:
+        wc_kwargs['colormap'] = colormap
+
+    if random_state is not None:
+        wc_kwargs['random_state'] = random_state
+
+    wc = WordCloud(**wc_kwargs).generate(text)
+
+    plt.figure(figsize=figsize)
+    if recolor_from_mask and frame is not None:
+        image_colors = ImageColorGenerator(frame)
+        plt.imshow(wc.recolor(color_func=image_colors))
+    else:
+        plt.imshow(wc)
+
+    plt.axis('off')
+    output_path = os.path.join(script_dir, f"{output_prefix}_{today}.png")
+    plt.savefig(output_path, bbox_inches='tight')
+    plt.close()
+    logger.info(f"Saved wordcloud to {output_path}")
+
+
+def main() -> None:
+    check_nltk_resource('punkt_tab')
     today = datetime.date.today()
 
-    # Grabbing the data
-    df = collect_news_articles(feeds_yaml_path="feeds.yaml",today=today)
+    try:
+        df = collect_news_articles(feeds_yaml_path="feeds.yaml", today=today)
+    except Exception:
+        logger.exception("Failed to collect news articles.")
+        return
 
-    # Though there is a set of default stop words (stuff to not be included), sometimes you want to add
     stopwords = set(STOPWORDS)
-    stopwords.update(['globalnews','guardian','abc','nbc','cbs','nytimes','globalnews','state'])
+    stopwords.update(['globalnews', 'guardian', 'abc', 'nbc', 'cbs', 'nytimes', 'state'])
 
-    # Generating Wordcloud
     if not df.empty:
         keywords = [j for i in df.Keywords for j in i]
-        text = ' '.join(i for i in keywords)
+        text = ' '.join(keywords)
 
-        # Time to generate some WordClouds!
-        # Unmasked Wordcloud
-        generate_wordcloud(text=text,output_prefix="original_wordcloud",today=today,stopwords=stopwords,figsize=(20, 20))
+        # Unmasked wordcloud
+        generate_wordcloud(text=text, output_prefix="original_wordcloud", today=today,
+                           stopwords=stopwords, figsize=(20, 20))
 
-        # US Flag Mask
-        generate_wordcloud(text=text,output_prefix="us_flag_wordcloud",today=today,stopwords=stopwords,mask_image="Flag.jpg",
-                           figsize=(30, 30),recolor_from_mask=True)
-        
-        # Tree Mask
-        generate_wordcloud(text=text,output_prefix="tree_wordcloud",today=today,stopwords=stopwords,mask_image="Tree.jpg",
-                           figsize=(20, 20),recolor_from_mask=True)
-        
-        # Modern Look Mask
-        generate_wordcloud(text=text,output_prefix="wordcloud",today=today,stopwords=STOPWORDS,mask_image="comment.png",
-                           figsize=(50, 50),colormap="rainbow",random_state=1)
+        # US Flag mask
+        generate_wordcloud(text=text, output_prefix="us_flag_wordcloud", today=today,
+                           stopwords=stopwords, mask_image="Flag.jpg",
+                           figsize=(30, 30), recolor_from_mask=True)
+
+        # Tree mask
+        generate_wordcloud(text=text, output_prefix="tree_wordcloud", today=today,
+                           stopwords=stopwords, mask_image="Tree.jpg",
+                           figsize=(20, 20), recolor_from_mask=True)
+
+        # Modern look (comment bubble mask)
+        generate_wordcloud(text=text, output_prefix="wordcloud", today=today,
+                           stopwords=STOPWORDS, mask_image="comment.png",
+                           figsize=(50, 50), colormap="rainbow", random_state=1)
     else:
-        print("No articles collected to generate word clouds.")
+        logger.warning("No articles collected; skipping wordcloud generation.")
+
 
 if __name__ == '__main__':
     main()

@@ -4,7 +4,7 @@ This project offers two independent tools for generating word clouds from news a
 A standalone script designed for batch execution. Its core logic is encapsulated in functions (`collect_news_articles`, `generate_wordcloud`) and the main execution flow is guarded by `if __name__ == '__main__':`. It automatically downloads necessary NLTK resources.
 
 **Word Cloud.ipynb (Jupyter Notebook):**
-A standalone, interactive notebook providing a step-by-step demonstration of the word cloud generation process. It includes its own dependency installation and NLTK resource download steps within the notebook cells.
+A standalone, interactive notebook providing a step-by-step demonstration of the word cloud generation process. It includes its own dependency installation and NLTK resource download steps within the notebook cells. Like the script, it loads RSS feeds from `feeds.yaml`.
 
 Dependencies (common to both):
 - requests
